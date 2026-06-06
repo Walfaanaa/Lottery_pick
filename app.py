@@ -103,11 +103,8 @@ with tab1:
                 st.success("Lottery numbers generated successfully!")
                 st.dataframe(df, use_container_width=True, hide_index=True)
 
-    elif assign_pass:
-        st.error("Wrong Assign Password")
-
 # =========================
-# TAB 2 - DRAW (FIXED)
+# TAB 2 - DRAW (WITH DOWNLOAD)
 # =========================
 
 with tab2:
@@ -121,7 +118,6 @@ with tab2:
         df = pd.read_csv(ASSIGNMENT_FILE)
         history_df = pd.read_csv(HISTORY_FILE)
 
-        # FIX: ensure Round column exists
         if "Round" not in history_df.columns:
             history_df["Round"] = 0
 
@@ -147,7 +143,6 @@ with tab2:
                     st.metric("Winning Number", winning_number)
                     st.metric("Member ID", member_id)
 
-                    # SAFE ROUND CALCULATION
                     if len(history_df) == 0:
                         round_no = 1
                     else:
@@ -162,6 +157,33 @@ with tab2:
 
                     history_df = pd.concat([history_df, new_row], ignore_index=True)
                     history_df.to_csv(HISTORY_FILE, index=False)
+
+        # =========================
+        # DOWNLOAD SECTION
+        # =========================
+
+        st.subheader("📥 Download CSV Files")
+
+        assignment_df = pd.read_csv(ASSIGNMENT_FILE)
+        history_df = pd.read_csv(HISTORY_FILE)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.download_button(
+                label="⬇️ Download Assignment CSV",
+                data=assignment_df.to_csv(index=False).encode("utf-8"),
+                file_name="lottery_assignment.csv",
+                mime="text/csv"
+            )
+
+        with col2:
+            st.download_button(
+                label="⬇️ Download History CSV",
+                data=history_df.to_csv(index=False).encode("utf-8"),
+                file_name="lottery_history.csv",
+                mime="text/csv"
+            )
 
     elif draw_pass:
         st.error("Wrong Draw Password")
