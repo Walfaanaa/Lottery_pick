@@ -15,12 +15,12 @@ st.set_page_config(
 )
 
 # =========================
-# PASSWORDS
+# SECURE PASSWORDS (HIDDEN)
 # =========================
 
-PASSWORD_ASSIGN = "EGSA_ASSIGN_2026"
-PASSWORD_DRAW = "EGSA_DRAW_2026"
-PASSWORD_RESET = "EGSA_RESET_2026"
+PASSWORD_ASSIGN = st.secrets["PASSWORD_ASSIGN"]
+PASSWORD_DRAW = st.secrets["PASSWORD_DRAW"]
+PASSWORD_RESET = st.secrets["PASSWORD_RESET"]
 
 # =========================
 # FILES
@@ -59,7 +59,7 @@ if not os.path.exists(HISTORY_FILE):
 # TITLE
 # =========================
 
-st.title("🎟️ EGSA Lottery System (Stable Version)")
+st.title("🎟️ EGSA Lottery System (SECURE VERSION)")
 
 tab1, tab2, tab3 = st.tabs(["Assign Numbers", "Draw Lottery", "Round Control"])
 
@@ -107,7 +107,7 @@ with tab1:
         st.error("Wrong Assign Password")
 
 # =========================
-# TAB 2 - DRAW (FIXED)
+# TAB 2 - DRAW
 # =========================
 
 with tab2:
@@ -121,7 +121,6 @@ with tab2:
         df = pd.read_csv(ASSIGNMENT_FILE)
         history_df = pd.read_csv(HISTORY_FILE)
 
-        # FIX: ensure Round column exists
         if "Round" not in history_df.columns:
             history_df["Round"] = 0
 
@@ -147,7 +146,6 @@ with tab2:
                     st.metric("Winning Number", winning_number)
                     st.metric("Member ID", member_id)
 
-                    # SAFE ROUND CALCULATION
                     if len(history_df) == 0:
                         round_no = 1
                     else:
