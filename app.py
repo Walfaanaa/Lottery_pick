@@ -15,12 +15,20 @@ st.set_page_config(
 )
 
 # =========================
-# SECURE PASSWORDS (HIDDEN)
+# SECURE PASSWORD LOADING (FIXED)
 # =========================
 
-PASSWORD_ASSIGN = st.secrets["PASSWORD_ASSIGN"]
-PASSWORD_DRAW = st.secrets["PASSWORD_DRAW"]
-PASSWORD_RESET = st.secrets["PASSWORD_RESET"]
+def get_secret(key):
+    return st.secrets.get(key, "")
+
+PASSWORD_ASSIGN = get_secret("PASSWORD_ASSIGN")
+PASSWORD_DRAW = get_secret("PASSWORD_DRAW")
+PASSWORD_RESET = get_secret("PASSWORD_RESET")
+
+# Safety check
+if not all([PASSWORD_ASSIGN, PASSWORD_DRAW, PASSWORD_RESET]):
+    st.error("❌ Missing secrets! Please check your .streamlit/secrets.toml file.")
+    st.stop()
 
 # =========================
 # FILES
@@ -73,7 +81,7 @@ with tab1:
 
     assign_pass = st.text_input("Enter Assign Password", type="password")
 
-    if assign_pass == PASSWORD_ASSIGN:
+    if assign_pass and assign_pass == PASSWORD_ASSIGN:
 
         df = pd.read_csv(ASSIGNMENT_FILE)
 
@@ -116,7 +124,7 @@ with tab2:
 
     draw_pass = st.text_input("Enter Draw Password", type="password")
 
-    if draw_pass == PASSWORD_DRAW:
+    if draw_pass and draw_pass == PASSWORD_DRAW:
 
         df = pd.read_csv(ASSIGNMENT_FILE)
         history_df = pd.read_csv(HISTORY_FILE)
@@ -177,7 +185,7 @@ with tab3:
 
     reset_pass = st.text_input("Enter Reset Password", type="password")
 
-    if reset_pass == PASSWORD_RESET:
+    if reset_pass and reset_pass == PASSWORD_RESET:
 
         if st.button("Start New Round"):
 
