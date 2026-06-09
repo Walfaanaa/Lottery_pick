@@ -38,27 +38,27 @@ df = pd.read_csv(uploaded_file)
 st.success("File loaded successfully!")
 
 # =========================
-# CLEAN COLUMN NAMES (IMPORTANT FIX)
+# CLEAN COLUMN NAMES
 # =========================
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
-# optional extra safety rename
+# extra safety mapping
 df.rename(columns={
     "memberid": "member_id",
     "member_id_": "member_id"
 }, inplace=True)
 
-st.subheader("📄 Cleaned Data Preview")
+st.subheader("📄 Data Preview")
 st.dataframe(df)
 
-st.write("📌 Detected Columns:", list(df.columns))
+st.write("📌 Columns Detected:", list(df.columns))
 
 
 # =========================
 # VALIDATION
 # =========================
 if "member_id" not in df.columns:
-    st.error("❌ No 'member_id' column found in your file.")
+    st.error("❌ No 'member_id' column found in uploaded file.")
     st.stop()
 
 members = df["member_id"].dropna().astype(str).tolist()
@@ -79,7 +79,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.write(f"👥 Total Members: **{len(members)}**")
-    st.write(f"🏆 Winners: **{len(st.session_state.winners)}**")
+    st.write(f"🏆 Winners Selected: **{len(st.session_state.winners)}**")
 
 with col2:
     draw_btn = st.button("🎲 Draw Winner")
@@ -101,11 +101,15 @@ if draw_btn:
 
 
 # =========================
-# WINNER HISTORY
+# WINNER HISTORY (UPDATED)
 # =========================
 st.subheader("📜 Winners History")
 
 if len(st.session_state.winners) == 0:
     st.info("No winners yet.")
 else:
-    st.table(pd.DataFrame(st.session_state.winners, columns=["Winner ID"]))
+    history_df = pd.DataFrame({
+        "No": range(1, len(st.session_state.winners) + 1),
+        "Lottery Number": st.session_state.winners
+    })
+    st.table(history_df)
