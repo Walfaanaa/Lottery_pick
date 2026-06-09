@@ -30,16 +30,31 @@ ASSIGNMENT_FILE = "lottery_assignment.csv"
 HISTORY_FILE = "lottery_history.csv"
 
 # =========================
-# MEMBERS
+# MEMBER CSV UPLOAD
 # =========================
 
-MEMBER_IDS = [
-    1001, 1002, 1003, 1004, 1005,
-    1006, 1007, 1008, 1009, 1010,
-    1011, 1012, 1013, 1014, 1015,
-    1016, 1017, 1018, 1019, 1020,
-    1022, 1023, 1024, 1025, 1026
-]
+st.sidebar.header("📂 Member Upload")
+
+uploaded_file = st.sidebar.file_uploader(
+    "Upload Member CSV",
+    type=["csv"]
+)
+
+MEMBER_IDS = []
+
+if uploaded_file is not None:
+
+    member_df = pd.read_csv(uploaded_file)
+
+    if "Member ID" not in member_df.columns:
+        st.error("CSV must contain 'Member ID' column")
+        st.stop()
+
+    MEMBER_IDS = member_df["Member ID"].dropna().tolist()
+
+    st.sidebar.success(
+        f"{len(MEMBER_IDS)} members loaded."
+    )
 
 # =========================
 # AUTO CREATE FILES
@@ -47,12 +62,17 @@ MEMBER_IDS = [
 
 if not os.path.exists(ASSIGNMENT_FILE):
     pd.DataFrame(columns=[
-        "Member ID", "Lottery Number 1", "Lottery Number 2"
+        "Member ID",
+        "Lottery Number 1",
+        "Lottery Number 2"
     ]).to_csv(ASSIGNMENT_FILE, index=False)
 
 if not os.path.exists(HISTORY_FILE):
     pd.DataFrame(columns=[
-        "Round", "Draw Date", "Winning Number", "Member ID"
+        "Round",
+        "Draw Date",
+        "Winning Number",
+        "Member ID"
     ]).to_csv(HISTORY_FILE, index=False)
 
 # =========================
@@ -61,7 +81,11 @@ if not os.path.exists(HISTORY_FILE):
 
 st.title("🎟️ EGSA Lottery System (Stable Version)")
 
-tab1, tab2, tab3 = st.tabs(["Assign Numbers", "Draw Lottery", "Round Control"])
+tab1, tab2, tab3 = st.tabs([
+    "Assign Numbers",
+    "Draw Lottery",
+    "Round Control"
+])
 
 # =========================
 # TAB 1 - ASSIGN
@@ -71,47 +95,85 @@ with tab1:
 
     st.subheader("Assign Lottery Numbers")
 
-    assign_pass = st.text_input("Enter Assign Password", type="password")
+    assign_pass = st.text_input(
+        "Enter Assign Password",
+        type="password"
+    )
 
     if assign_pass == PASSWORD_ASSIGN:
 
-        df = pd.read_csv(ASSIGNMENT_FILE)
-
-        if len(df) > 0 and "Lottery Number 1" in df.columns and df["Lottery Number 1"].notna().any():
-            st.success("Lottery already assigned.")
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
+        if len(MEMBER_IDS) == 0:
+            st.warning(
+                "Please upload member CSV first."
+            )
         else:
 
-            if st.button("Generate Numbers"):
+            df = pd.read_csv(ASSIGNMENT_FILE)
 
-                numbers = list(range(1, 51))
-                random.shuffle(numbers)
+            if (
+                len(df) > 0
+                and "Lottery Number 1" in df.columns
+                and df["Lottery Number 1"].notna().any()
+            ):
 
-                data = []
+                st.success("Lottery already assigned.")
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    hide_index=True
+                )
 
-                for m in MEMBER_IDS:
-                    data.append({
-                        "Member ID": m,
-                        "Lottery Number 1": numbers.pop(),
-                        "Lottery Number 2": numbers.pop()
-                    })
+            else:
 
-                df = pd.DataFrame(data)
-                df.to_csv(ASSIGNMENT_FILE, index=False)
+                if st.button("Generate Numbers"):
 
-                st.success("Lottery numbers generated successfully!")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                    total_numbers = len(MEMBER_IDS) * 2
+
+                    numbers = list(
+                        range(1, total_numbers + 1)
+                    )
+
+                    random.shuffle(numbers)
+
+                    data = []
+
+                    for m in MEMBER_IDS:
+
+                        data.append({
+                            "Member ID": m,
+                            "Lottery Number 1": numbers.pop(),
+                            "Lottery Number 2": numbers.pop()
+                        })
+
+                    df = pd.DataFrame(data)
+
+                    df.to_csv(
+                        ASSIGNMENT_FILE,
+                        index=False
+                    )
+
+                    st.success(
+                        "Lottery numbers generated successfully!"
+                    )
+
+                    st.dataframe(
+                        df,
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
 # =========================
-# TAB 2 - DRAW (WITH DOWNLOAD)
+# TAB 2 - DRAW
 # =========================
 
 with tab2:
 
     st.subheader("🎯 Draw Lottery")
 
-    draw_pass = st.text_input("Enter Draw Password", type="password")
+    draw_pass = st.text_input(
+        "Enter Draw Password",
+        type="password"
+    )
 
     if draw_pass == PASSWORD_DRAW:
 
@@ -123,73 +185,132 @@ with tab2:
 
         if st.button("Draw Winner"):
 
-            if df.empty or "Lottery Number 1" not in df.columns:
-                st.error("Please generate lottery first.")
+            if df.empty:
+
+                st.error(
+                    "Please generate lottery first."
+                )
+
             else:
 
-                winning_number = random.randint(1, 50)
+                max_number = int(
+                    max(
+                        df["Lottery Number 1"].max(),
+                        df["Lottery Number 2"].max()
+                    )
+                )
+
+                winning_number = random.randint(
+                    1,
+                    max_number
+                )
 
                 winner = df[
-                    (df["Lottery Number 1"] == winning_number) |
+                    (df["Lottery Number 1"] == winning_number)
+                    |
                     (df["Lottery Number 2"] == winning_number)
                 ]
 
                 if winner.empty:
-                    st.error("No winner found.")
+
+                    st.error(
+                        "No winner found."
+                    )
+
                 else:
+
                     member_id = winner.iloc[0]["Member ID"]
 
                     st.success("🎉 Winner Selected")
-                    st.metric("Winning Number", winning_number)
-                    st.metric("Member ID", member_id)
+
+                    st.metric(
+                        "Winning Number",
+                        winning_number
+                    )
+
+                    st.metric(
+                        "Member ID",
+                        member_id
+                    )
 
                     if len(history_df) == 0:
                         round_no = 1
                     else:
-                        round_no = int(history_df["Round"].max()) + 1
+                        round_no = (
+                            int(history_df["Round"].max()) + 1
+                        )
 
                     new_row = pd.DataFrame([{
                         "Round": round_no,
-                        "Draw Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "Winning Number": winning_number,
-                        "Member ID": member_id
+                        "Draw Date":
+                        datetime.now().strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
+                        "Winning Number":
+                        winning_number,
+                        "Member ID":
+                        member_id
                     }])
 
-                    history_df = pd.concat([history_df, new_row], ignore_index=True)
-                    history_df.to_csv(HISTORY_FILE, index=False)
+                    history_df = pd.concat(
+                        [history_df, new_row],
+                        ignore_index=True
+                    )
+
+                    history_df.to_csv(
+                        HISTORY_FILE,
+                        index=False
+                    )
 
         # =========================
-        # DOWNLOAD SECTION
+        # DOWNLOADS
         # =========================
 
         st.subheader("📥 Download CSV Files")
 
-        assignment_df = pd.read_csv(ASSIGNMENT_FILE)
-        history_df = pd.read_csv(HISTORY_FILE)
+        assignment_df = pd.read_csv(
+            ASSIGNMENT_FILE
+        )
+
+        history_df = pd.read_csv(
+            HISTORY_FILE
+        )
 
         col1, col2 = st.columns(2)
 
         with col1:
+
             st.download_button(
                 label="⬇️ Download Assignment CSV",
-                data=assignment_df.to_csv(index=False).encode("utf-8"),
+                data=assignment_df.to_csv(
+                    index=False
+                ).encode("utf-8"),
                 file_name="lottery_assignment.csv",
                 mime="text/csv"
             )
 
         with col2:
+
             st.download_button(
                 label="⬇️ Download History CSV",
-                data=history_df.to_csv(index=False).encode("utf-8"),
+                data=history_df.to_csv(
+                    index=False
+                ).encode("utf-8"),
                 file_name="lottery_history.csv",
                 mime="text/csv"
             )
 
     elif draw_pass:
+
         st.error("Wrong Draw Password")
 
     st.subheader("📜 Draw History")
-    st.dataframe(pd.read_csv(HISTORY_FILE), use_container_width=True, hide_index=True)
+
+    st.dataframe(
+        pd.read_csv(HISTORY_FILE),
+        use_container_width=True,
+        hide_index=True
+    )
 
 # =========================
 # TAB 3 - RESET
@@ -199,19 +320,36 @@ with tab3:
 
     st.subheader("🔄 Round Control")
 
-    reset_pass = st.text_input("Enter Reset Password", type="password")
+    reset_pass = st.text_input(
+        "Enter Reset Password",
+        type="password"
+    )
 
     if reset_pass == PASSWORD_RESET:
 
         if st.button("Start New Round"):
 
-            empty_df = pd.DataFrame(columns=[
-                "Member ID", "Lottery Number 1", "Lottery Number 2"
-            ])
-            empty_df.to_csv(ASSIGNMENT_FILE, index=False)
+            empty_df = pd.DataFrame(
+                columns=[
+                    "Member ID",
+                    "Lottery Number 1",
+                    "Lottery Number 2"
+                ]
+            )
 
-            st.success("New round started successfully!")
-            st.info("History is preserved safely.")
+            empty_df.to_csv(
+                ASSIGNMENT_FILE,
+                index=False
+            )
+
+            st.success(
+                "New round started successfully!"
+            )
+
+            st.info(
+                "History is preserved safely."
+            )
 
     elif reset_pass:
+
         st.error("Wrong Reset Password")
