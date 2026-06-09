@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import random
-from datetime import datetime
 
 # =========================
 # PAGE CONFIG
@@ -21,50 +20,54 @@ if "winners" not in st.session_state:
     st.session_state.winners = []
 
 if "members" not in st.session_state:
-    st.session_state.members = []
-    
-if "loaded" not in st.session_state:
-    st.session_state.loaded = False
+    st.session_state.members = None
 
 
 # =========================
-# UPLOAD FILE (ONLY SOURCE)
+# FILE UPLOAD
 # =========================
-uploaded_file = st.file_uploader(
-    "📥 Drag & Drop CSV File Here",
-    type=["csv"]
-)
+uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-
-    st.success("✅ File loaded successfully!")
-
-    st.subheader("📄 Uploaded Data Preview")
-    st.dataframe(df)
-
-    # =========================
-    # VALIDATION
-    # =========================
-    if "member_id" not in df.columns:
-        st.error("❌ CSV must contain 'member_id' column.")
-        st.stop()
-
-    # IMPORTANT: keep exact values (NO GENERATION)
-    members = df["member_id"].dropna().astype(str).tolist()
-
-    if len(members) == 0:
-        st.error("❌ No valid members found.")
-        st.stop()
-
-    st.session_state.members = members
-    st.session_state.loaded = True
-
-
-# Stop if no file
-if not st.session_state.loaded:
+if uploaded_file is None:
     st.warning("Please upload a CSV file to continue.")
     st.stop()
+
+# Load data
+df = pd.read_csv(uploaded_file)
+
+st.success("File loaded successfully!")
+
+# =========================
+# CLEAN COLUMN NAMES (IMPORTANT FIX)
+# =========================
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+
+# optional extra safety rename
+df.rename(columns={
+    "memberid": "member_id",
+    "member_id_": "member_id"
+}, inplace=True)
+
+st.subheader("📄 Cleaned Data Preview")
+st.dataframe(df)
+
+st.write("📌 Detected Columns:", list(df.columns))
+
+
+# =========================
+# VALIDATION
+# =========================
+if "member_id" not in df.columns:
+    st.error("❌ No 'member_id' column found in your file.")
+    st.stop()
+
+members = df["member_id"].dropna().astype(str).tolist()
+
+if len(members) == 0:
+    st.error("❌ No valid member IDs found.")
+    st.stop()
+
+st.session_state.members = members
 
 
 # =========================
@@ -72,35 +75,29 @@ if not st.session_state.loaded:
 # =========================
 st.subheader("🎯 Lottery Draw Panel")
 
-remaining = list(set(st.session_state.members) - set(st.session_state.winners))
-
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
-    st.metric("👥 Total Members", len(st.session_state.members))
+    st.write(f"👥 Total Members: **{len(members)}**")
+    st.write(f"🏆 Winners: **{len(st.session_state.winners)}**")
 
 with col2:
-    st.metric("🏆 Winners", len(st.session_state.winners))
-
-with col3:
-    st.metric("🎯 Remaining", len(remaining))
-
-
-draw_btn = st.button("🎲 Draw Winner", use_container_width=True)
+    draw_btn = st.button("🎲 Draw Winner")
 
 
 # =========================
 # DRAW LOGIC (NO DUPLICATES)
 # =========================
 if draw_btn:
+    remaining = list(set(members) - set(st.session_state.winners))
+
     if len(remaining) == 0:
         st.warning("⚠️ No more eligible members left!")
     else:
         winner = random.choice(remaining)
-
         st.session_state.winners.append(winner)
 
-        st.success(f"🏆 Winner Selected: {winner}")
+        st.success(f"🏆 Winner: {winner}")
 
 
 # =========================
@@ -108,13 +105,7 @@ if draw_btn:
 # =========================
 st.subheader("📜 Winners History")
 
-if st.session_state.winners:
-    history_df = pd.DataFrame({
-        "No": list(range(1, len(st.session_state.winners) + 1)),
-        "Winner ID": st.session_state.winners,
-        "Time": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")] * len(st.session_state.winners)
-    })
-
-    st.dataframe(history_df, use_container_width=True)
-else:
+if len(st.session_state.winners) == 0:
     st.info("No winners yet.")
+else:
+    st.table(pd.DataFrame(st.session_state.winners, columns=["Winner ID"]))
