@@ -52,7 +52,6 @@ st.sidebar.header("📂 Member Upload")
 uploaded_file = st.sidebar.file_uploader("Upload Member CSV", type=["csv"])
 
 MEMBER_IDS = []
-DATA_SOURCE = "generate"
 
 if uploaded_file is not None:
 
@@ -63,16 +62,13 @@ if uploaded_file is not None:
         st.stop()
 
     MEMBER_IDS = df_upload["Member ID"].dropna().astype(str).tolist()
-    DATA_SOURCE = "upload"
 
     st.sidebar.success(f"{len(MEMBER_IDS)} members loaded.")
 
-# =========================
-# AUTO MODE IF NO UPLOAD
-# =========================
-
-if DATA_SOURCE == "generate" and len(MEMBER_IDS) == 0:
-    MEMBER_IDS = [f"AUTO_{i}" for i in range(1, 11)]
+# ❗ STRICT MODE: NO FILE = STOP SYSTEM (NO GENERATION)
+if uploaded_file is None:
+    st.warning("Please upload a Member CSV file. No auto-generated data is allowed.")
+    st.stop()
 
 # =========================
 # HELPER FUNCTION
@@ -99,12 +95,12 @@ def generate_lottery(member_ids):
 # TITLE
 # =========================
 
-st.title("🎟️ EGSA Lottery System (FINAL CLEAN VERSION)")
+st.title("🎟️ EGSA Lottery System (STRICT MODE - NO AUTO GENERATION)")
 
 tab1, tab2, tab3 = st.tabs(["Assign Numbers", "Draw Lottery", "Round Control"])
 
 # =========================
-# TAB 1 - ASSIGN (AUTO FIXED)
+# TAB 1 - ASSIGN
 # =========================
 
 with tab1:
@@ -130,10 +126,10 @@ with tab1:
         else:
 
             if len(MEMBER_IDS) == 0:
-                st.warning("No members available.")
+                st.error("No members found in uploaded file.")
                 st.stop()
 
-            st.info("Auto generating lottery assignment...")
+            st.info("Assigning lottery numbers from uploaded file...")
 
             df = generate_lottery(MEMBER_IDS)
             df.to_csv(ASSIGNMENT_FILE, index=False)
@@ -157,7 +153,7 @@ with tab2:
         history_df = pd.read_csv(HISTORY_FILE)
 
         if df.empty:
-            st.error("No lottery assigned. Upload CSV or generate first.")
+            st.error("No lottery assigned yet.")
             st.stop()
 
         if st.button("Draw Winner"):
@@ -196,17 +192,10 @@ with tab2:
                 history_df.to_csv(HISTORY_FILE, index=False)
 
         st.subheader("📜 Draw History")
-
-        history_df = pd.read_csv(HISTORY_FILE)
-
-        if not history_df.empty:
-            history_df["Winning Number"] = history_df["Winning Number"].astype(int)
-            history_df["Round"] = history_df["Round"].astype(int)
-
         st.dataframe(history_df, use_container_width=True, hide_index=True)
 
 # =========================
-# TAB 3 - RESET (CLEAN FIXED)
+# TAB 3 - RESET
 # =========================
 
 with tab3:
@@ -219,7 +208,6 @@ with tab3:
 
         if st.button("Start New Round"):
 
-            # reset assignment
             empty_df = pd.DataFrame(columns=[
                 "Member ID",
                 "Lottery Number 1",
@@ -228,16 +216,8 @@ with tab3:
 
             empty_df.to_csv(ASSIGNMENT_FILE, index=False)
 
-            # optional clean history formatting (no corruption)
-            history_df = pd.read_csv(HISTORY_FILE)
-
-            if not history_df.empty:
-                history_df["Winning Number"] = history_df["Winning Number"].astype(int)
-                history_df["Round"] = history_df["Round"].astype(int)
-                history_df.to_csv(HISTORY_FILE, index=False)
-
             st.success("New round started successfully!")
-            st.info("Assignment reset, history cleaned and preserved.")
+            st.info("Assignment reset. No data was generated.")
 
     elif reset_pass:
         st.error("Wrong Reset Password")
