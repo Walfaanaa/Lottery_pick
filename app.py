@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
+from datetime import datetime
 
 # =========================
 # PAGE CONFIG
@@ -14,47 +15,56 @@ st.set_page_config(
 st.title("🎟️ EGSA Lottery System")
 
 # =========================
-# SESSION STATE (for history)
+# SESSION STATE
 # =========================
 if "winners" not in st.session_state:
     st.session_state.winners = []
 
 if "members" not in st.session_state:
-    st.session_state.members = None
+    st.session_state.members = []
+    
+if "loaded" not in st.session_state:
+    st.session_state.loaded = False
 
 
 # =========================
 # UPLOAD FILE (ONLY SOURCE)
 # =========================
-uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
+uploaded_file = st.file_uploader(
+    "📥 Drag & Drop CSV File Here",
+    type=["csv"]
+)
 
-if uploaded_file is None:
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+
+    st.success("✅ File loaded successfully!")
+
+    st.subheader("📄 Uploaded Data Preview")
+    st.dataframe(df)
+
+    # =========================
+    # VALIDATION
+    # =========================
+    if "member_id" not in df.columns:
+        st.error("❌ CSV must contain 'member_id' column.")
+        st.stop()
+
+    # IMPORTANT: keep exact values (NO GENERATION)
+    members = df["member_id"].dropna().astype(str).tolist()
+
+    if len(members) == 0:
+        st.error("❌ No valid members found.")
+        st.stop()
+
+    st.session_state.members = members
+    st.session_state.loaded = True
+
+
+# Stop if no file
+if not st.session_state.loaded:
     st.warning("Please upload a CSV file to continue.")
     st.stop()
-
-# Load file
-df = pd.read_csv(uploaded_file)
-st.success("File loaded successfully!")
-
-st.subheader("📄 Uploaded Data Preview")
-st.dataframe(df)
-
-
-# =========================
-# VALIDATION
-# =========================
-if "member_id" not in df.columns:
-    st.error("❌ CSV must contain 'member_id' column.")
-    st.stop()
-
-members = df["member_id"].dropna().astype(str).tolist()
-
-if len(members) == 0:
-    st.error("❌ No valid members found in uploaded file.")
-    st.stop()
-
-# Store in session
-st.session_state.members = members
 
 
 # =========================
@@ -62,29 +72,35 @@ st.session_state.members = members
 # =========================
 st.subheader("🎯 Lottery Draw Panel")
 
-col1, col2 = st.columns(2)
+remaining = list(set(st.session_state.members) - set(st.session_state.winners))
+
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.write(f"👥 Total Members: **{len(members)}**")
-    st.write(f"🏆 Winners Selected: **{len(st.session_state.winners)}**")
+    st.metric("👥 Total Members", len(st.session_state.members))
 
 with col2:
-    draw_btn = st.button("🎲 Draw Winner")
+    st.metric("🏆 Winners", len(st.session_state.winners))
+
+with col3:
+    st.metric("🎯 Remaining", len(remaining))
+
+
+draw_btn = st.button("🎲 Draw Winner", use_container_width=True)
 
 
 # =========================
 # DRAW LOGIC (NO DUPLICATES)
 # =========================
 if draw_btn:
-    remaining = list(set(members) - set(st.session_state.winners))
-
     if len(remaining) == 0:
         st.warning("⚠️ No more eligible members left!")
     else:
         winner = random.choice(remaining)
+
         st.session_state.winners.append(winner)
 
-        st.success(f"🏆 Winner: {winner}")
+        st.success(f"🏆 Winner Selected: {winner}")
 
 
 # =========================
@@ -92,7 +108,13 @@ if draw_btn:
 # =========================
 st.subheader("📜 Winners History")
 
-if len(st.session_state.winners) == 0:
-    st.info("No winners yet.")
+if st.session_state.winners:
+    history_df = pd.DataFrame({
+        "No": list(range(1, len(st.session_state.winners) + 1)),
+        "Winner ID": st.session_state.winners,
+        "Time": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")] * len(st.session_state.winners)
+    })
+
+    st.dataframe(history_df, use_container_width=True)
 else:
-    st.table(pd.DataFrame(st.session_state.winners, columns=["Winner ID"]))
+    st.info("No winners yet.")
