@@ -20,23 +20,57 @@ if "winners" not in st.session_state:
     st.session_state.winners = []
 
 # =========================
-# FILE UPLOAD
+# DATA SOURCE
 # =========================
-uploaded_file = st.file_uploader(
-    "Upload CSV File",
-    type=["csv"]
+st.sidebar.header("📂 Data Source")
+
+source = st.sidebar.radio(
+    "Choose Source",
+    ["Upload CSV", "GitHub CSV"]
 )
 
-if uploaded_file is None:
-    st.warning("Please upload a CSV file to continue.")
+df = None
+
+# =========================
+# OPTION 1: UPLOAD FILE
+# =========================
+if source == "Upload CSV":
+
+    uploaded_file = st.file_uploader(
+        "Upload CSV File",
+        type=["csv"]
+    )
+
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+
+# =========================
+# OPTION 2: GITHUB FILE
+# =========================
+else:
+
+    github_url = st.text_input(
+        "GitHub Raw CSV URL",
+        placeholder="https://raw.githubusercontent.com/user/repo/main/members.csv"
+    )
+
+    if github_url:
+        try:
+            df = pd.read_csv(github_url)
+            st.success("✅ GitHub CSV loaded successfully!")
+        except Exception as e:
+            st.error(f"Failed to load GitHub file: {e}")
+
+# =========================
+# STOP IF NO DATA
+# =========================
+if df is None:
+    st.info("Upload a CSV or provide a GitHub CSV URL.")
     st.stop()
 
 # =========================
-# LOAD CSV
+# CLEAN COLUMNS
 # =========================
-df = pd.read_csv(uploaded_file)
-
-# Clean column names
 df.columns = (
     df.columns
     .str.strip()
@@ -44,16 +78,13 @@ df.columns = (
     .str.replace(" ", "_")
 )
 
-st.success("✅ File loaded successfully!")
+st.success("✅ Data Loaded")
 
 # =========================
 # DATA PREVIEW
 # =========================
 st.subheader("📄 Data Preview")
-st.dataframe(df)
-
-st.write("📌 Columns Detected:")
-st.write(list(df.columns))
+st.dataframe(df, use_container_width=True)
 
 # =========================
 # VALIDATION
@@ -71,30 +102,35 @@ missing_cols = [
 
 if missing_cols:
     st.error(
-        f"❌ Missing required columns: {', '.join(missing_cols)}"
+        f"❌ Missing columns: {', '.join(missing_cols)}"
     )
     st.stop()
 
 # =========================
-# CREATE LOTTERY POOL
+# LOTTERY POOL
 # =========================
 lottery_pool = pd.concat([
     df["lottery_number_1"],
     df["lottery_number_2"]
 ]).dropna().tolist()
 
-total_numbers = len(lottery_pool)
-
 # =========================
-# LOTTERY PANEL
+# PANEL
 # =========================
 st.subheader("🎯 Lottery Draw Panel")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric("🎟️ Total Lottery Numbers", total_numbers)
-    st.metric("🏆 Winners Drawn", len(st.session_state.winners))
+    st.metric(
+        "🎟️ Total Numbers",
+        len(lottery_pool)
+    )
+
+    st.metric(
+        "🏆 Winners",
+        len(st.session_state.winners)
+    )
 
 with col2:
     draw_btn = st.button(
@@ -103,85 +139,56 @@ with col2:
     )
 
 # =========================
-# DRAW LOGIC
+# DRAW
 # =========================
 if draw_btn:
 
     used_numbers = [
-        winner["lottery_number"]
-        for winner in st.session_state.winners
+        x["lottery_number"]
+        for x in st.session_state.winners
     ]
 
     available_numbers = [
-        num for num in lottery_pool
-        if num not in used_numbers
+        x for x in lottery_pool
+        if x not in used_numbers
     ]
 
-    if len(available_numbers) == 0:
-        st.warning("⚠️ No lottery numbers remaining!")
+    if not available_numbers:
+        st.warning("⚠️ No numbers remaining.")
     else:
 
-        # Randomly select ONE lottery number
         winning_number = random.choice(
             available_numbers
         )
 
-        # Find member owning that number
         winner_row = df[
             (df["lottery_number_1"] == winning_number) |
             (df["lottery_number_2"] == winning_number)
         ].iloc[0]
 
-        winner_member = winner_row["member_id"]
+        winner_id = winner_row["member_id"]
 
-        # Save history
         st.session_state.winners.append({
-            "member_id": winner_member,
+            "member_id": winner_id,
             "lottery_number": winning_number
         })
 
-        # Display result
         st.balloons()
 
         st.success(
-            f"🏆 Winner Member ID: {winner_member}"
+            f"🏆 Winner Member ID: {winner_id}"
         )
 
         st.info(
-            f"🎟️ Winning Lottery Number: {winning_number}"
+            f"🎟️ Winning Number: {winning_number}"
         )
 
 # =========================
-# CURRENT WINNER
-# =========================
-if len(st.session_state.winners) > 0:
-
-    latest = st.session_state.winners[-1]
-
-    st.subheader("🥇 Latest Winner")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.metric(
-            "Member ID",
-            latest["member_id"]
-        )
-
-    with c2:
-        st.metric(
-            "Winning Number",
-            latest["lottery_number"]
-        )
-
-# =========================
-# WINNERS HISTORY
+# HISTORY
 # =========================
 st.subheader("📜 Winners History")
 
-if len(st.session_state.winners) == 0:
-    st.info("No winners yet.")
-else:
+if st.session_state.winners:
 
     history_df = pd.DataFrame(
         st.session_state.winners
@@ -190,7 +197,7 @@ else:
     history_df.insert(
         0,
         "No",
-        range(1, len(history_df) + 1)
+        range(1, len(history_df)+1)
     )
 
     st.dataframe(
@@ -198,17 +205,14 @@ else:
         use_container_width=True
     )
 
-# =========================
-# RESET BUTTON
-# =========================
-st.divider()
+else:
+    st.info("No winners yet.")
 
+# =========================
+# RESET
+# =========================
 if st.button("🔄 Reset Draw History"):
 
     st.session_state.winners = []
-
-    st.success(
-        "Winner history cleared successfully!"
-    )
-
+    st.success("History Cleared")
     st.rerun()
